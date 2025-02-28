@@ -37,31 +37,43 @@ Esta herramienta te permite registrar tus horas trabajadas en Tempo de manera r�
 
 ## 🔑 Configuración Inicial (solo una vez)
 
-Antes de usar la herramienta por primera vez, necesitas configurar algunos datos en el archivo `time_logger.py`:
+### 1. Configurar el archivo config.json
+1. Copia el archivo `config.example.json` y renómbralo como `config.json`
+2. Abre `config.json` con tu editor de texto favorito
+3. Actualiza los siguientes valores con tu información:
+   ```json
+   {
+       "jira": {
+           "url": "https://TUEMPRESA.atlassian.net",  // URL de tu Jira
+           "email": "tu.email@tuempresa.com",         // Tu correo de Jira
+           "api_token": "TU_TOKEN_DE_JIRA",          // Token de API de Jira
+           "account_id": "TU_ACCOUNT_ID"             // Tu Account ID de Jira
+       },
+       "tempo": {
+           "api_token": "TU_TOKEN_DE_TEMPO"          // Token de API de Tempo
+       }
+   }
+   ```
 
-### 1. Obtener tu Token de Tempo API
+### 2. Obtener tu Token de Tempo API
 1. Ve a la configuración de Tempo en Jira: [Tempo > Settings > API Integration]
 2. En tu navegador, abre: https://TUEMPRESA.atlassian.net/plugins/servlet/ac/io.tempo.jira/tempo-app#!/configuration/api-integration
 3. Copia el token generado
-4. En el archivo `time_logger.py`, reemplaza "XXXXXXX" en `self.tempo_api_token` con tu token
+4. Pégalo en el campo `api_token` de la sección `tempo` en tu `config.json`
 
-### 2. Obtener tu Token de Jira
+### 3. Obtener tu Token de Jira
 1. Ve a la página de tokens de API de Atlassian: https://id.atlassian.com/manage-profile/security/api-tokens
 2. Haz clic en "Create API token"
 3. Dale un nombre (por ejemplo: "Registrador de Tiempo")
 4. Copia el token generado
-5. En el archivo `time_logger.py`, reemplaza "XXXXX" en `self.jira_api_token` con tu token
-
-### 3. Configurar tu información de Jira
-1. Reemplaza "TUEMPRESA" en `self.jira_url` con el nombre de tu empresa en Jira (ejemplo: "multiplica")
-2. Reemplaza "xxxxxx@multiplica.com" en `self.jira_email` con tu correo de Jira
+5. Pégalo en el campo `api_token` de la sección `jira` en tu `config.json`
 
 ### 4. Obtener tu Account ID de Jira
 1. Ve a tu perfil de Jira
 2. En la URL de tu perfil, copia el ID que aparece después de "people/"
    - Ejemplo: Si la URL es `https://TUEMPRESA.atlassian.net/jira/people/557058:822cb66b-e880-4f1d-9e33-ba19ed84c40a`
    - Tu Account ID es: `557058:822cb66b-e880-4f1d-9e33-ba19ed84c40a`
-3. En el archivo `time_logger.py`, reemplaza el valor vacío en `self.account_id` con tu Account ID
+3. Pégalo en el campo `account_id` de la sección `jira` en tu `config.json`
 
 ## 🚀 Cómo Usar
 
@@ -102,6 +114,7 @@ Cuando ejecutes el programa, te pedirá:
 - Si hay algún problema de conexión, tus registros se guardarán localmente
 - Asegúrate de tener una conexión a internet activa
 - Guarda una copia de tus tokens en un lugar seguro
+- **NUNCA** compartas tu archivo `config.json` ni lo subas a repositorios públicos
 
 ## 🆘 ¿Problemas?
 

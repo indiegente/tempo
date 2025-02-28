@@ -1,0 +1,11 @@
+{
+    "jira": {
+        "url": "https://TUEMPRESA.atlassian.net",
+        "email": "tu.email@tuempresa.com",
+        "api_token": "TU_TOKEN_DE_JIRA",
+        "account_id": "TU_ACCOUNT_ID"
+    },
+    "tempo": {
+        "api_token": "TU_TOKEN_DE_TEMPO"
+    }
+} 
