@@ -104,6 +104,22 @@ Cuando ejecutes el programa, te pedirá:
 - Guarda una copia de tus tokens en un lugar seguro
 
 ## 🆘 ¿Problemas?
-Si encuentras algún problema, por favor contacta a:
-- Soporte técnico: [correo_del_equipo_tecnico]
-- Administrador de Jira: [correo_del_admin] 
+
+¿Necesitas ayuda? ¡Estamos aquí para apoyarte! 
+
+### 📬 Contacto
+
+```
+  ┌──────────────────────────────────┐
+  │                                  │
+  │   Jorge Bastidas                 │
+  │   ✉️  indiegente@proton.me       │
+  │   🔒 Comunicación Encriptada     │
+  │                                  │
+  └──────────────────────────────────┘
+```
+
+> 💡 **Tip**: Para una respuesta más rápida, incluye en tu correo:
+> - El error que estás viendo
+> - El ID del ticket de Jira
+> - La fecha y hora del intento 
