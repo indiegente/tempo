@@ -4,10 +4,12 @@ import requests
 import json
 import re
 import base64
+import argparse
 from pathlib import Path
 
 class TimeLogger:
-    def __init__(self):
+    def __init__(self, verbose=False):
+        self.verbose = verbose
         # Cargar configuración desde archivo
         self.config = self.load_config()
         
@@ -22,12 +24,41 @@ class TimeLogger:
         credentials = f"{self.jira_email}:{self.jira_api_token}"
         self.jira_auth = base64.b64encode(credentials.encode()).decode()
 
+        # Verificar credenciales de Jira
+        self.verify_jira_credentials()
+
         # Almacenamiento local para respaldo
         self.home_dir = str(Path.home())
         self.log_dir = os.path.join(self.home_dir, "time_logs")
         self.log_file = os.path.join(self.log_dir, "time_entries.json")
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
+
+    def log_message(self, message, is_verbose=False, is_error=False):
+        """Imprimir mensaje según el modo verbose"""
+        if is_error or not is_verbose or (is_verbose and self.verbose):
+            print(message)
+
+    def verify_jira_credentials(self):
+        """Verificar que las credenciales de Jira sean válidas"""
+        url = f"{self.jira_url}/rest/api/3/myself"
+        headers = {
+            "Authorization": f"Basic {self.jira_auth}",
+            "Accept": "application/json"
+        }
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            self.log_message("✅ Conexión con Jira establecida correctamente", is_verbose=True)
+        except requests.exceptions.RequestException as e:
+            self.log_message("\n❌ Error al conectar con Jira", is_error=True)
+            if response.status_code == 401:
+                self.log_message("Las credenciales de Jira son inválidas. Por favor, verifica tu email y API token en config.json", is_error=True)
+            elif response.status_code == 404:
+                self.log_message("La URL de Jira es incorrecta. Por favor, verifica la URL en config.json", is_error=True)
+            else:
+                self.log_message(f"Error de conexión: {str(e)}", is_error=True)
+            raise SystemExit(1)
 
     def load_config(self):
         """Cargar configuración desde archivo JSON"""
@@ -78,12 +109,26 @@ class TimeLogger:
         }
         try:
             response = requests.get(url, headers=headers)
+            
+            if response.status_code == 404:
+                print(f"\n❌ El issue {issue_key} no existe o no tienes permiso para verlo")
+                print("Por favor verifica:")
+                print("1. Que el ID del issue sea correcto")
+                print("2. Que tengas permisos para ver este issue")
+                print("3. Que el proyecto exista y tengas acceso a él")
+                raise ValueError(f"Issue {issue_key} no encontrado o sin acceso")
+            
             response.raise_for_status()
             data = response.json()
             return data['id']
+            
         except requests.exceptions.RequestException as e:
-            print(f"Error al obtener ID de Jira: {e}")
-            if hasattr(e.response, 'text'):
+            print(f"\n❌ Error al obtener ID de Jira: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 401:
+                    print("Las credenciales de Jira son inválidas")
+                elif e.response.status_code == 403:
+                    print("No tienes permisos suficientes para acceder a este issue")
                 print(f"Detalles de la respuesta: {e.response.text}")
             raise ValueError(f"No se pudo obtener el ID para {issue_key}")
 
@@ -143,35 +188,35 @@ class TimeLogger:
             data = response.json()
             
             # Imprimir atributos disponibles y sus valores
-            print("\nAtributos de Trabajo Disponibles:")
+            self.log_message("\nAtributos de Trabajo Disponibles:", is_verbose=True)
             for attr in data.get('results', []):
-                print(f"\nAtributo: {attr['name']} (Clave: {attr['key']})")
+                self.log_message(f"\nAtributo: {attr['name']} (Clave: {attr['key']})", is_verbose=True)
                 if attr.get('type') == 'STATIC_LIST' and 'values' in attr:
-                    print("Valores válidos:", ", ".join(attr['values']))
+                    self.log_message(f"Valores válidos: {', '.join(attr['values'])}", is_verbose=True)
             
             return data.get('results', [])
         except requests.exceptions.RequestException as e:
-            print(f"Error al obtener atributos de trabajo: {e}")
+            self.log_message(f"Error al obtener atributos de trabajo: {e}", is_error=True)
             if hasattr(e.response, 'text'):
-                print(f"Detalles de la respuesta: {e.response.text}")
+                self.log_message(f"Detalles de la respuesta: {e.response.text}", is_error=True)
             return []
 
     def log_time(self):
         """Función principal para registrar una entrada de tiempo"""
-        print("\n=== Nueva Entrada de Tiempo ===")
+        self.log_message("\n=== Nueva Entrada de Tiempo ===", is_verbose=True)
         
         try:
             # Obtener atributos de trabajo primero
-            print("\nObteniendo atributos de trabajo...")
+            self.log_message("\nObteniendo atributos de trabajo...", is_verbose=True)
             attributes = self.get_work_attributes()
             billable_attr = next((attr for attr in attributes if '_Billable_' in attr['key']), None)
             
             if not billable_attr:
-                print("\nAdvertencia: No se encontró la configuración del atributo Facturable. Usando valores por defecto.")
+                self.log_message("\nAdvertencia: No se encontró la configuración del atributo Facturable. Usando valores por defecto.", is_verbose=True)
                 billable_values = {'Yes': 'Yes', 'No': 'No'}
             else:
                 billable_values = {val: val for val in billable_attr.get('values', ['Yes', 'No'])}
-                print(f"\nValores válidos para facturable: {', '.join(billable_values.keys())}")
+                self.log_message(f"\nValores válidos para facturable: {', '.join(billable_values.keys())}", is_verbose=True)
             
             # Inicializar fecha actual
             today = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -186,7 +231,7 @@ class TimeLogger:
             # Obtener el ID numérico del issue de Jira
             issue_id = self.get_jira_issue_id(issue_key)
             
-            # Convertir esfuerzo a segundos (Tempo espera tiempo en segundos)
+            # Convertir esfuerzo a segundos
             time_spent_seconds = int(float(effort) * 3600)
 
             # Mapear y/n a valores reales de Tempo
@@ -194,13 +239,13 @@ class TimeLogger:
 
             # Preparar payload para la API de Tempo
             payload = {
-                "issueId": int(issue_id),  # Asegurar que issueId sea entero
+                "issueId": int(issue_id),
                 "timeSpentSeconds": time_spent_seconds,
                 "billableSeconds": time_spent_seconds if billable else 0,
                 "description": description,
                 "authorAccountId": self.account_id,
-                "startDate": date,  # Fecha en formato YYYY-MM-DD
-                "startTime": "09:00:00",  # Hora en formato HH:mm:ss
+                "startDate": date,
+                "startTime": "09:00:00",
                 "attributes": [
                     {
                         "key": "_Billable_",
@@ -210,27 +255,27 @@ class TimeLogger:
             }
 
             # Debug: Imprimir el payload
-            print("\nEnviando payload a la API de Tempo:")
-            print(json.dumps(payload, indent=2))
+            self.log_message("\nEnviando payload a la API de Tempo:", is_verbose=True)
+            self.log_message(json.dumps(payload, indent=2), is_verbose=True)
 
             # Enviar a la API de Tempo
             success = self.send_to_tempo(payload)
             
             if success:
-                print("\n¡Entrada de tiempo registrada exitosamente en Tempo!")
-                print(f"Issue: {issue_key}")
-                print(f"Esfuerzo: {effort} horas")
-                print(f"Descripción: {description}")
-                print(f"Fecha: {date}")
+                self.log_message("\n✅ Entrada de tiempo registrada exitosamente")
+                self.log_message(f"Issue: {issue_key}", is_verbose=True)
+                self.log_message(f"Esfuerzo: {effort} horas", is_verbose=True)
+                self.log_message(f"Descripción: {description}", is_verbose=True)
+                self.log_message(f"Fecha: {date}", is_verbose=True)
             else:
-                print("\nFalló el registro en Tempo. Guardando localmente como respaldo.")
+                self.log_message("\n❌ Falló el registro en Tempo. Guardando localmente como respaldo.", is_error=True)
                 self.save_entry_locally(payload)
 
         except ValueError as e:
-            print(f"\nError: {str(e)}")
+            self.log_message(f"\n❌ Error: {str(e)}", is_error=True)
             return False
         except Exception as e:
-            print(f"\nError inesperado: {str(e)}")
+            self.log_message(f"\n❌ Error inesperado: {str(e)}", is_error=True)
             return False
 
         return True
@@ -245,23 +290,22 @@ class TimeLogger:
         
         try:
             # Debug: Imprimir la solicitud completa
-            print("\nEnviando solicitud a:", url)
-            print("Headers:", {k: v for k, v in headers.items() if k != "Authorization"})
+            self.log_message("\nEnviando solicitud a: " + url, is_verbose=True)
+            self.log_message("Headers: " + str({k: v for k, v in headers.items() if k != "Authorization"}), is_verbose=True)
             
             response = requests.post(url, json=payload, headers=headers)
-            print(f"\nCódigo de estado de la respuesta: {response.status_code}")
+            self.log_message(f"\nCódigo de estado de la respuesta: {response.status_code}", is_verbose=True)
             
             if response.status_code in [200, 201]:
-                print("¡Entrada de tiempo registrada exitosamente!")
                 return True
             else:
-                print(f"Error en la respuesta de la API de Tempo: {response.text}")
+                self.log_message(f"Error en la respuesta de la API de Tempo: {response.text}", is_error=True)
                 response.raise_for_status()
             return True
         except requests.exceptions.RequestException as e:
-            print(f"Error al registrar en Tempo: {e}")
+            self.log_message(f"Error al registrar en Tempo: {e}", is_error=True)
             if hasattr(e.response, 'text'):
-                print(f"Detalles de la respuesta: {e.response.text}")
+                self.log_message(f"Detalles de la respuesta: {e.response.text}", is_error=True)
             return False
 
     def save_entry_locally(self, entry):
@@ -279,7 +323,11 @@ class TimeLogger:
             json.dump(entries, f, indent=2)
 
 def main():
-    logger = TimeLogger()
+    parser = argparse.ArgumentParser(description='Registrador de tiempo para Jira/Tempo')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Mostrar información detallada')
+    args = parser.parse_args()
+    
+    logger = TimeLogger(verbose=args.verbose)
     
     while True:
         logger.log_time()
